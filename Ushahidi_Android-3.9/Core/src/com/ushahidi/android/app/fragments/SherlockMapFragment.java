@@ -24,6 +24,9 @@ import android.os.Bundle;
 import android.support.v4.app.Watson.OnCreateOptionsMenuListener;
 import android.support.v4.app.Watson.OnOptionsItemSelectedListener;
 import android.support.v4.app.Watson.OnPrepareOptionsMenuListener;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 
 import com.actionbarsherlock.app.SherlockFragmentActivity;
 import com.actionbarsherlock.internal.view.menu.MenuItemWrapper;
@@ -32,6 +35,7 @@ import com.actionbarsherlock.view.Menu;
 import com.actionbarsherlock.view.MenuInflater;
 import com.actionbarsherlock.view.MenuItem;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.ushahidi.android.app.R;
 import com.ushahidi.android.app.util.AnalyticsUtils;
 
 /**
@@ -43,9 +47,16 @@ public class SherlockMapFragment extends SupportMapFragment implements
 		OnOptionsItemSelectedListener {
 	
 	private SherlockFragmentActivity mActivity;
-
+	protected View view;
     public SherlockFragmentActivity getSherlockActivity() {
         return mActivity;
+    }
+    
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        super.onCreateView(inflater, container, savedInstanceState);
+	    view = inflater.inflate(R.layout.ushahidi_map,  container, false);
+	    return view;
     }
     
     public void onActivityCreated(Bundle savedInstanceState) {
