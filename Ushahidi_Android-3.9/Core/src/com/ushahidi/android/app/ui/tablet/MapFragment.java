@@ -42,6 +42,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
@@ -50,6 +51,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -57,6 +59,7 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -96,6 +99,7 @@ import com.ushahidi.android.app.ui.phone.AddReportActivity;
 import com.ushahidi.android.app.ui.phone.ViewReportSlideActivity;
 import com.ushahidi.android.app.util.ImageManager;
 import com.ushahidi.android.app.util.Util;
+import com.ushahidi.android.app.connect.*;
 
 public class MapFragment extends BaseMapFragment implements
 		OnInfoWindowClickListener, ConnectionCallbacks, OnConnectionFailedListener, LocationListener{
@@ -121,8 +125,14 @@ public class MapFragment extends BaseMapFragment implements
 	}
 	
 	
-	/*add*/
+	/*Ushahidi plus*/
 	private Button volunteer;
+	
+	private ImageButton tag;
+	
+	private TextView id;
+	
+	private String imei;
 	
 	private LocationClient mLocationClient;
 	
@@ -154,8 +164,15 @@ public class MapFragment extends BaseMapFragment implements
 			map.setOnInfoWindowClickListener(this);
 
 		}
+		
+		/*get phone IMEI*/
+		TelephonyManager tm = (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
+        imei = tm.getDeviceId();
+		
 		setViewById();
 		setListener();
+		
+		
 		
 	}
 	
@@ -408,6 +425,9 @@ public class MapFragment extends BaseMapFragment implements
 
 	private void setViewById(){
 		volunteer = (Button) view.findViewById(R.id.volunteer);
+		tag = (ImageButton) view.findViewById(R.id.tag);
+		id = (TextView) view.findViewById(R.id.id);
+		id.setText(id.getText() + imei);
 	}
 	
 	private void setListener(){
@@ -417,6 +437,24 @@ public class MapFragment extends BaseMapFragment implements
 			public void onClick(View arg0) {
 				// TODO Auto-generated method stub
 				new asyncTaskProgress().execute("23.7079219", "120.5521570");
+			}
+			
+		});
+		
+		tag.setOnClickListener(new OnClickListener(){
+
+			@Override
+			public void onClick(View arg0) {
+				// TODO Auto-generated method stub
+				LatLng position = new LatLng(mLocationClient.getLastLocation().getLatitude(), mLocationClient.getLastLocation().getLongitude());
+
+				tagIcon(position, "Go other ways", "Can't pass", R.drawable.tag);
+            	try{
+            		String result = DBConnector.executeQuery("INSERT INTO `crowdsourcing` (`site`,`context`,`lat`,`lng`) VALUES ('道路施工','請迴避道路或改道行駛','" + Double.toString(position.latitude) + "','" + Double.toString(position.longitude) +"');", "http://140.125.45.113/cross/disaster.php");
+            		Toast.makeText(getActivity(), "回報資訊成功", Toast.LENGTH_SHORT).show();
+            	}catch(Exception e){
+            		Toast.makeText(getActivity(), "回報資訊失敗", Toast.LENGTH_SHORT).show();
+            	}
 			}
 			
 		});
@@ -568,11 +606,23 @@ public class MapFragment extends BaseMapFragment implements
 	           		now.latitude + "," + now.longitude +"&destination=" + position.latitude + "," + position.longitude + "&language=en&sensor=true";
 	        
 	        new httpProgress().execute(route);
-	        map.addMarker(new MarkerOptions()
+
+			tagIcon(new LatLng((23.70053),(120.53258)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
+			tagIcon(new LatLng((23.69472),(120.52468)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
+			tagIcon(new LatLng((23.68541),(120.53966)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
+			tagIcon(new LatLng((23.69422),(120.54384)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
+			
+			tagIcon(new LatLng((23.69544),(120.52834)), "Go other ways", "Can't pass", R.drawable.tag);
+			tagIcon(new LatLng((23.68797),(120.53078)), "Go other ways", "Can't pass", R.drawable.tag);
+			tagIcon(new LatLng((23.70191),(120.52924)), "Go other ways", "Can't pass", R.drawable.tag);
+			
+			tagIcon(position, "Help Me", "Victim", R.drawable.trapped);
+	        /*map.addMarker(new MarkerOptions()
 	           .position(position)
 	           .snippet("Help Me~")
 	            .icon(BitmapDescriptorFactory.fromResource(R.drawable.trapped))
-	            .title("受災民眾"));
+	            .title("受災民眾"));*/
+	        
 		} catch(Exception e) {  
 	        Toast.makeText(getActivity(), "規劃路線失敗，請重新執行!", Toast.LENGTH_SHORT).show();
 	    }
@@ -580,6 +630,13 @@ public class MapFragment extends BaseMapFragment implements
 		return _points;
 	}
 
+	public void tagIcon(LatLng position, String message, String title, int pic){
+		map.addMarker(new MarkerOptions()
+        .position(position)
+        .snippet(message)
+         .icon(BitmapDescriptorFactory.fromResource(pic))
+         .title(title));
+	}
 	private void show_Dialog(String message){
 		Builder dialog = new AlertDialog.Builder(getActivity());
 	    

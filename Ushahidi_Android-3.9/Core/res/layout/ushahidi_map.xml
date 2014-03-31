@@ -8,12 +8,34 @@
     android:orientation="vertical" 
     android:background="@color/filter_by_background_color">
 
-    <Button
-        android:id="@+id/volunteer"
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Be Volunteer" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+
+        <TextView
+            android:id="@+id/id"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="10dip"
+            android:text="ID: " 
+            android:textColor="@color/filter_by_text_color"/>
+
+        <Button
+            android:id="@+id/volunteer"
+            style="?android:attr/buttonStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="10dip"
+            android:text="Be Volunteer" />
+
+        <ImageButton
+            android:id="@+id/tag"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:padding="10dip"
+            android:src="@drawable/tag_icon" />
+
+    </LinearLayout>
 
 	<fragment
 	    android:id="@+id/map"

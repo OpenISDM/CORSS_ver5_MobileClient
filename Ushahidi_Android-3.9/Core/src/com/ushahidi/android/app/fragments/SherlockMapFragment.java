@@ -20,6 +20,7 @@
 package com.ushahidi.android.app.fragments;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.Watson.OnCreateOptionsMenuListener;
 import android.support.v4.app.Watson.OnOptionsItemSelectedListener;
