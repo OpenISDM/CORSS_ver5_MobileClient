@@ -51,6 +51,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.StrictMode;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -89,6 +90,7 @@ import com.ushahidi.android.app.adapters.ListFetchedReportAdapter;
 import com.ushahidi.android.app.adapters.PopupAdapter;
 import com.ushahidi.android.app.api.CategoriesApi;
 import com.ushahidi.android.app.api.ReportsApi;
+import com.ushahidi.android.app.connect.DBConnector;
 import com.ushahidi.android.app.entities.PhotoEntity;
 import com.ushahidi.android.app.entities.ReportEntity;
 import com.ushahidi.android.app.fragments.BaseMapFragment;
@@ -99,7 +101,6 @@ import com.ushahidi.android.app.ui.phone.AddReportActivity;
 import com.ushahidi.android.app.ui.phone.ViewReportSlideActivity;
 import com.ushahidi.android.app.util.ImageManager;
 import com.ushahidi.android.app.util.Util;
-import com.ushahidi.android.app.connect.*;
 
 public class MapFragment extends BaseMapFragment implements
 		OnInfoWindowClickListener, ConnectionCallbacks, OnConnectionFailedListener, LocationListener{
@@ -138,7 +139,11 @@ public class MapFragment extends BaseMapFragment implements
 	
 	private List<LatLng> _points = new ArrayList<LatLng>();
 	
-	private LatLng center = new LatLng(24.730870310199286, 121.76321268081665);
+	private LatLng center = new LatLng(23.6980553, 120.5361413);
+	
+	private ArrayList <LatLng> map_data = new ArrayList<LatLng> ();
+	
+	private ArrayList <Integer> map_id = new ArrayList <Integer> ();
 	
 	private final LocationRequest REQUEST = LocationRequest.create()
 		      .setInterval(5000)         // 5 seconds
@@ -165,14 +170,30 @@ public class MapFragment extends BaseMapFragment implements
 
 		}
 		
+		/*
+         *此段必要!! 
+         *用來抓取mysql資訊, 拿掉無法抓取
+         */
+        if(android.os.Build.VERSION.SDK_INT > 8){
+	        StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()  
+	        .detectDiskReads()  
+	        .detectDiskWrites()  
+	        .detectNetwork()  
+	        .penaltyLog()  
+	        .build());  
+	        StrictMode.setVmPolicy(new StrictMode.VmPolicy.Builder()  
+	        .detectLeakedSqlLiteObjects()   
+	        .penaltyLog()  
+	        .penaltyDeath()  
+	        .build());
+        }
+		
 		/*get phone IMEI*/
 		TelephonyManager tm = (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
         imei = tm.getDeviceId();
 		
 		setViewById();
 		setListener();
-		
-		
 		
 	}
 	
@@ -198,6 +219,7 @@ public class MapFragment extends BaseMapFragment implements
 		}
 		if (mReportModel != null) {
 
+			@SuppressWarnings("static-access")
 			List<String> markers = mMarker.markersHolder;
 			// FIX ME: Using the title to find which latlng have been tapped.
 			// This ugly hack has to do with the limitation in Google maps api
@@ -207,7 +229,6 @@ public class MapFragment extends BaseMapFragment implements
 			// SEE:https://code.google.com/p/gmaps-api-issues/issues/detail?id=4650
 			final int position = markers.indexOf(marker.getTitle());
 			if (markers != null && markers.size() > 0) {
-				Toast.makeText(getActivity(), Integer.toString(position), 5).show();
 				launchViewReport(position, "");
 			}
 		}
@@ -258,8 +279,7 @@ public class MapFragment extends BaseMapFragment implements
 														this);
 									}
 									if (latLng != null)
-										map.moveCamera(CameraUpdateFactory
-												.newLatLng(latLng));
+										map.moveCamera(CameraUpdateFactory.newLatLngZoom(center, 13.0f));
 
 								}
 							});
@@ -436,7 +456,7 @@ public class MapFragment extends BaseMapFragment implements
 			@Override
 			public void onClick(View arg0) {
 				// TODO Auto-generated method stub
-				new asyncTaskProgress().execute("23.7079219", "120.5521570");
+				new asyncTaskProgress().execute(map_data.get(0));
 			}
 			
 		});
@@ -450,21 +470,23 @@ public class MapFragment extends BaseMapFragment implements
 
 				tagIcon(position, "Go other ways", "Can't pass", R.drawable.tag);
             	try{
-            		String result = DBConnector.executeQuery("INSERT INTO `crowdsourcing` (`site`,`context`,`lat`,`lng`) VALUES ('道路施工','請迴避道路或改道行駛','" + Double.toString(position.latitude) + "','" + Double.toString(position.longitude) +"');", "http://140.125.45.113/cross/disaster.php");
+            		@SuppressWarnings("unused")
+					String result = DBConnector.executeQuery("INSERT INTO `crowdsourcing` (`site`,`context`,`lat`,`lng`) VALUES ('Can'" + "'" + "t pass','Go other ways','" + Double.toString(position.latitude) + "','" + Double.toString(position.longitude) +"');", "http://140.125.45.113/cross/disaster.php");
             		Toast.makeText(getActivity(), "回報資訊成功", Toast.LENGTH_SHORT).show();
             	}catch(Exception e){
             		Toast.makeText(getActivity(), "回報資訊失敗", Toast.LENGTH_SHORT).show();
             	}
 			}
 			
+			
 		});
 	}
 	
 	
 	
-	public class asyncTaskProgress extends AsyncTask<String, Void, Void>{
+	public class asyncTaskProgress extends AsyncTask<LatLng, Void, Void>{
 	    	
-	    String input[] = new String[2];
+	    LatLng input;
 	    String message;
 	   	ProgressDialog PDialog;
 	    	
@@ -473,11 +495,12 @@ public class MapFragment extends BaseMapFragment implements
 			// TODO Auto-generated method stub
 			super.onPostExecute(result);
 			
-			GetDirection(new LatLng(Double.valueOf(input[0]), Double.valueOf(input[1])));
+			GetDirection(input);
 			message = "路徑規劃執行已完成";
 			PDialog.dismiss();
 			show_Dialog(message);
 		}
+		@SuppressWarnings("static-access")
 		@Override
 		protected void onPreExecute() {
 			// TODO Auto-generated method stub
@@ -486,15 +509,21 @@ public class MapFragment extends BaseMapFragment implements
 		}
 	
 		@Override
-		protected Void doInBackground(String... params) {
+		protected Void doInBackground(LatLng... params) {
 			// TODO Auto-generated method stub
 			try {
 				for(int i = 0; i < params.length; i++)
-					input[i] = params[i];
+					input = params[i];
 					Thread.sleep(3000);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			}
+			try{
+				String run = DBConnector.executeQuery("DELETE FROM incident WHERE location_id = '" + Integer.toString(map_id.get(0)) + "';", "http://140.125.45.113/cross/rescue.php");
+				map_data.remove(0);
+				map_id.remove(0);
+			}catch (Exception e){
 			}
 			return null;
 		}
@@ -536,7 +565,6 @@ public class MapFragment extends BaseMapFragment implements
 		        }
 		        
 			}catch(Exception e){
-				Log.i(e.toString());
 			}
 			return null;
 		}
@@ -587,6 +615,7 @@ public class MapFragment extends BaseMapFragment implements
 
 		//用PolyLine畫地圖，顯示路徑
 		public void Route(){
+			@SuppressWarnings("unused")
 			Polyline line;
 			for(int i = 1; i < _points.size(); i++){
 				line = map.addPolyline(new PolylineOptions()
@@ -606,7 +635,11 @@ public class MapFragment extends BaseMapFragment implements
 	           		now.latitude + "," + now.longitude +"&destination=" + position.latitude + "," + position.longitude + "&language=en&sensor=true";
 	        
 	        new httpProgress().execute(route);
-
+	        
+	        fetch_disaster();
+	        fetch_shelter();
+	        
+	        /*
 			tagIcon(new LatLng((23.70053),(120.53258)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
 			tagIcon(new LatLng((23.69472),(120.52468)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
 			tagIcon(new LatLng((23.68541),(120.53966)), "Ambulance Depot Base", "Ambulance Depot", R.drawable.helthkeep);
@@ -615,8 +648,8 @@ public class MapFragment extends BaseMapFragment implements
 			tagIcon(new LatLng((23.69544),(120.52834)), "Go other ways", "Can't pass", R.drawable.tag);
 			tagIcon(new LatLng((23.68797),(120.53078)), "Go other ways", "Can't pass", R.drawable.tag);
 			tagIcon(new LatLng((23.70191),(120.52924)), "Go other ways", "Can't pass", R.drawable.tag);
-			
-			tagIcon(position, "Help Me", "Victim", R.drawable.trapped);
+			*/
+			//tagIcon(position, "Help Me", "Victim", R.drawable.trapped);
 	        /*map.addMarker(new MarkerOptions()
 	           .position(position)
 	           .snippet("Help Me~")
@@ -634,8 +667,8 @@ public class MapFragment extends BaseMapFragment implements
 		map.addMarker(new MarkerOptions()
         .position(position)
         .snippet(message)
-         .icon(BitmapDescriptorFactory.fromResource(pic))
-         .title(title));
+        .icon(BitmapDescriptorFactory.fromResource(pic))
+        .title(title));
 	}
 	private void show_Dialog(String message){
 		Builder dialog = new AlertDialog.Builder(getActivity());
@@ -651,6 +684,39 @@ public class MapFragment extends BaseMapFragment implements
 		
 		dialog.show();
 	}
+	
+	public void fetch_disaster(){
+		try{
+			
+			String result = DBConnector.executeQuery("SELECT * FROM crowdsourcing", "http://140.125.45.113/cross/query.php");
+	        JSONArray jsonArray = new JSONArray(result);
+	        for(int i = 0; i < jsonArray.length(); i++) {
+	        	JSONObject jsonData = jsonArray.getJSONObject(i);
+	            map.addMarker(new MarkerOptions()
+	            .position(new LatLng(Double.valueOf(jsonData.getString("lat")), Double.valueOf(jsonData.getString("lng"))))
+	            .snippet(jsonData.getString("context"))
+	            .icon(BitmapDescriptorFactory.fromResource(R.drawable.tag))
+	            .title(jsonData.getString("site")));
+	        }
+		}catch(Exception e){}
+	}
+	
+	public void fetch_shelter(){
+		try{
+			
+			String result = DBConnector.executeQuery("SELECT * FROM shelter", "http://140.125.45.113/cross/query.php");
+	        JSONArray jsonArray = new JSONArray(result);
+	        for(int i = 0; i < jsonArray.length(); i++) {
+	        	JSONObject jsonData = jsonArray.getJSONObject(i);
+	            map.addMarker(new MarkerOptions()
+	            .position(new LatLng(Double.valueOf(jsonData.getString("lat")), Double.valueOf(jsonData.getString("lng"))))
+	            .snippet(jsonData.getString("context"))
+	            .icon(BitmapDescriptorFactory.fromResource(jsonData.getString("site").equals("Can't pass")? R.drawable.tag : R.drawable.helthkeep))
+	            .title(jsonData.getString("site")));
+	        }
+		}catch(Exception e){}
+	}
+	
 	
 	/**
 	 * Restart the receiving, when we are back on line.
@@ -722,6 +788,19 @@ public class MapFragment extends BaseMapFragment implements
 				} catch (NumberFormatException e) {
 					longitude = 0.0;
 				}
+				
+				LatLng store = new LatLng(latitude, longitude);
+				map_data.add(store);
+				
+				try{
+					String result = DBConnector.executeQuery("SELECT * FROM incident", "http://140.125.45.113/cross/query_id.php");
+					JSONArray jsonArray = new JSONArray(result);
+			        for(int i = 0; i < jsonArray.length(); i++) {
+			        	JSONObject jsonData = jsonArray.getJSONObject(i);
+			        	map_id.add(Integer.valueOf(jsonData.getString("location_id")));
+			        }
+				}catch (Exception e){}
+				
 				final String description = Util.limitString(reportEntity
 						.getIncident().getDescription(), 30);
 
